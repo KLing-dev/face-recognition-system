@@ -1,0 +1,32 @@
+# 人脸识别系统后端依赖包列表
+# 使用方法: pip install -r requirements.txt
+
+# Web框架
+flask==2.3.3
+flask-restful==0.3.10
+flask-cors==4.0.0
+flask-sqlalchemy==3.1.1
+
+# 图像处理和人脸相关库
+opencv-python==4.9.0.80  # OpenCV用于图像处理
+pillow==10.2.0          # PIL (Python Imaging Library)用于图像读取和处理
+numpy==1.26.4           # 用于数组操作和数学计算
+mtcnn==0.1.1            # MTCNN人脸检测库 (依赖TensorFlow)
+tensorflow==2.15.0      # TensorFlow (MTCNN依赖)
+facenet-pytorch==2.5.3  # FaceNet预训练模型库，用于人脸特征提取
+pandas==2.2.1           # 数据分析库（可选，用于数据处理）
+
+# PyTorch依赖 (facenet-pytorch需要)
+torch==2.1.2            # PyTorch深度学习框架
+torchvision==0.16.2     # TorchVision (PyTorch的计算机视觉库)
+
+# 数据库
+sqlalchemy==2.0.20      # ORM数据库工具
+python-dotenv==1.0.0    # 环境变量管理
+
+# 注意事项：
+# 1. 建议在虚拟环境中安装依赖
+# 2. PyTorch安装可能需要根据您的系统和CUDA版本选择合适的安装命令
+#    - 没有GPU时可以使用CPU版本: pip install torch==2.1.2+cpu torchvision==0.16.2+cpu -f https://download.pytorch.org/whl/torch_stable.html
+#    - 有NVIDIA GPU时可以使用GPU版本: 请参考 https://pytorch.org/ 获取最新安装命令
+# 3. 首次运行时，MTCNN和FaceNet模型会自动下载，可能需要一些时间
