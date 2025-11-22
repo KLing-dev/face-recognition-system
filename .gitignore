@@ -45,3 +45,7 @@ dist/
 *.njsproj
 *.sln
 *.sw?
+
+# Project specific
+backend/test_output/
+backend/data/
