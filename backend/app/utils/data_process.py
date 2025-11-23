@@ -31,8 +31,10 @@ if __name__ == "__main__":
     from app.models.models import User, get_db, SessionLocal
     from app.utils.face_utils import detect_face, extract_face_feature, save_face_feature, load_face_feature, compare_face_features
     from app.utils.user_id_generator import generate_new_user_id, validate_user_id_format, check_user_id_uniqueness
+    from app.utils.user_data_manager import delete_user
 else:
     # 作为模块导入时使用相对导入
+    from app.utils.user_data_manager import delete_user
     from ..config import config
     from ..models.models import User, get_db, SessionLocal
     from .face_utils import detect_face, extract_face_feature, save_face_feature, load_face_feature, compare_face_features
@@ -452,3 +454,92 @@ if __name__ == "__main__":
     print("- ValueError: 输入参数无效、未检测到人脸、用户名已存在")
     print("- Exception: 数据库操作失败、特征提取失败、文件操作失败")
     print("- 所有异常都会提供明确的错误信息")
+
+
+def get_statistics():
+    """
+    获取系统统计数据
+    
+    Returns:
+        dict: 包含统计信息的字典
+    """
+    try:
+        # 获取数据库会话
+        if __name__ == "__main__":
+            from app.models.models import SessionLocal
+        else:
+            from ..models.models import SessionLocal
+        
+        db = SessionLocal()
+        
+        try:
+            # 查询总用户数
+            total_users = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+            
+            # 查询今日活跃用户数
+            from datetime import datetime, timedelta
+            today = datetime.now().date()
+            active_today = db.execute(
+                "SELECT COUNT(DISTINCT user_id) FROM recognition_logs WHERE date(timestamp) = ?",
+                (today,)
+            ).fetchone()[0]
+            
+            # 查询总识别次数
+            recognition_count = db.execute("SELECT COUNT(*) FROM recognition_logs").fetchone()[0]
+            
+            return {
+                "code": 0,
+                "message": "所有统计数据已获取",
+                "data": {
+                    "total_users": total_users,
+                    "active_today": active_today,
+                    "recognition_count": recognition_count
+                }
+            }
+        except Exception as e:
+            return {
+                "code": 500,
+                "message": f"获取统计数据失败: {str(e)}",
+                "data": None
+            }
+        finally:
+            db.close()
+    except Exception as e:
+        return {
+            "code": 500,
+            "message": f"系统错误: {str(e)}",
+            "data": None
+        }
+
+def delete_user_by_id(user_id):
+    """
+    删除指定ID的用户
+    
+    Args:
+        user_id (str): 用户ID
+    
+    Returns:
+        dict: 包含删除结果的字典
+    """
+    try:
+        # 调用user_data_manager中的delete_user函数
+        result = delete_user(user_id)
+        
+        if result['success']:
+            return {
+                "success": True,
+                "message": "用户删除成功",
+                "deleted_user_id": user_id
+            }
+        else:
+            return {
+                "success": False,
+                "message": result['message'],
+                "deleted_user_id": None
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"删除用户时发生错误: {str(e)}",
+            "deleted_user_id": None
+        }
