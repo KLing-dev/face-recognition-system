@@ -26,8 +26,11 @@ class User(Base):
     # 主键字段
     id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="用户ID")
     
-    # 用户名 - 唯一约束确保不会有重复用户名
-    name = Column(String(100), unique=True, index=True, nullable=False, comment="用户名")
+    # 用户名 - 允许重复，只设置索引不设唯一约束
+    name = Column(String(100), index=True, nullable=False, comment="用户名")
+    
+    # 身份ID - 唯一约束确保不会有重复身份ID
+    identity_id = Column(String(50), unique=True, index=True, nullable=False, comment="身份ID")
     
     # 人脸特征向量存储路径
     feature_path = Column(String(255), nullable=False, comment="人脸特征向量文件存储路径")
@@ -43,7 +46,7 @@ class User(Base):
     
     def __repr__(self):
         """返回用户对象的字符串表示"""
-        return f"<User(id={self.id}, name='{self.name}')>"
+        return f"<User(id={self.id}, name='{self.name}', identity_id='{self.identity_id}')>"
 
 
 def get_db():
