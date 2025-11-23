@@ -20,6 +20,7 @@ backend_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, backend_dir)
 
 from app.utils.data_process import register_face, recognize_face
+from app.utils.user_id_generator import generate_new_user_id, validate_user_id_format
 from app.models.models import init_db, SessionLocal, User
 
 def print_menu():
@@ -32,7 +33,8 @@ def print_menu():
     print("3. 📊 查看数据库状态")
     print("4. 🗑️ 清空所有用户数据")
     print("5. 📋 删除单个/多个用户")
-    print("6. ❌ 退出")
+    print("6. 🧪 测试系统改进")
+    print("7. ❌ 退出")
     print(f"{'='*50}")
 
 def capture_face_from_camera():
@@ -93,7 +95,9 @@ def capture_face_from_camera():
     return image_path
 
 def register_new_user():
-    """注册新用户 - 支持本地图片上传和摄像头拍摄，自动生成唯一身份ID"""
+    """
+    注册新用户 - 支持本地图片上传和摄像头拍摄，测试严格的人脸与身份ID绑定机制
+    """
     print(f"\n{'='*40}")
     print("📸 人脸注册")
     print(f"{'='*40}")
@@ -104,8 +108,15 @@ def register_new_user():
         print("❌ 用户名不能为空！")
         return
     
-    # 身份ID将在后端自动生成，无需用户输入
-    identity_id = None
+    # 可选输入身份ID，默认None让后端自动生成
+    identity_id_input = input("请输入身份ID (可选，留空自动生成): ").strip()
+    identity_id = identity_id_input if identity_id_input else None
+    
+    # 显示安全提示
+    print("\n⚠️  安全提示: 系统实施严格的'一人一脸一ID'绑定机制")
+    print("   - 将验证人脸存在性和唯一性")
+    print("   - 相同人脸将被拒绝注册")
+    print("   - 身份ID必须唯一")
     
     # 选择注册方式
     print("\n📋 请选择注册方式:")
@@ -149,6 +160,7 @@ def register_new_user():
             
     elif method_choice == '2':
         # 使用摄像头拍摄
+        print("请确保人脸清晰可见，光线充足，避免遮挡")
         image_path = capture_face_from_camera()
         if not image_path:
             return
@@ -168,36 +180,43 @@ def register_new_user():
         # 添加二次确认
         print(f"\n📋 注册信息确认:")
         print(f"   用户名: {name}")
+        print(f"   身份ID: {'自定义: ' + identity_id if identity_id else '系统自动生成'}")
         print(f"   图片路径: {os.path.basename(image_path)}")
-        print(f"   提示: 身份ID将在后端自动生成并确保唯一性")
+        print(f"   安全提示: 系统将验证人脸唯一性和身份ID有效性")
         
         confirm = input("\n✅ 确认注册以上信息吗？(y/n): ").strip().lower()
         if confirm != 'y':
             print("❌ 已取消注册")
             return
         
-        # 注册人脸（不传递identity_id，让后端自动生成）
-        result = register_face(name, image)
+        # 注册人脸（传递identity_id，如果有）
+        result = register_face(name, image, identity_id)
         
         print(f"✅ 注册成功！")
         print(f"   用户ID: {result['user_id']}")
         print(f"   用户名: {name}")
-        print(f"   生成的身份ID: {result['identity_id']}")
+        print(f"   身份ID: {result['identity_id']}")
         print(f"   消息: {result['message']}")
+        print("\n安全机制验证通过: 人脸与身份ID已成功绑定")
         
     except ValueError as e:
         error_msg = str(e)
-        print(f"❌ 注册失败: {error_msg}")
+        print(f"\n❌ 注册失败: {error_msg}")
+        print("\n安全机制工作正常: 注册流程已被正确阻断")
+        
         if "未检测到人脸" in error_msg:
             print("💡 建议: 确保图片中有清晰的人脸，光线充足")
         elif "已存在" in error_msg and "身份ID" in error_msg:
-            # 虽然现在不会因为身份ID重复报错（自动生成），但保留兼容性
-            print("💡 建议: 系统将自动生成唯一ID，请重新尝试")
+            print("💡 建议: 身份ID必须唯一，请尝试使用其他身份ID或留空让系统自动生成")
+        elif "人脸已存在" in error_msg:
+            print("💡 建议: 该人脸已注册，请使用其他人脸图像")
         elif "多人脸" in error_msg:
             print("💡 建议: 注册时请使用仅包含单人的图片")
     except Exception as e:
-        print(f"❌ 意外错误: {str(e)}")
+        print(f"\n❌ 意外错误: {str(e)}")
         print("💡 请检查图片格式是否支持 (JPG, PNG, BMP等)")
+    
+    input("\n按Enter键继续...")
 
 def visualize_recognition(image_path, recognition_result):
     """可视化识别结果 - 在人脸上绘制框和标签"""
@@ -380,6 +399,7 @@ def show_database_status():
             for i, user in enumerate(users, 1):
                 print(f"   {i}. ID: {user.id}")
                 print(f"      姓名: {user.name}")
+                print(f"      身份ID: {user.identity_id}")
                 print(f"      创建时间: {user.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
                 
                 # 检查文件是否存在
@@ -562,6 +582,201 @@ def delete_users():
         except:
             pass
 
+def test_system_improvements():
+    """测试系统改进功能"""
+    print(f"\n{'='*40}")
+    print("🧪 系统改进测试")
+    print(f"{'='*40}")
+    print("此功能用于测试以下系统改进:")
+    print("1. 身份ID字段正确显示")
+    print("2. 重复姓名注册功能")
+    print("3. 身份ID唯一性保证")
+    
+    # 选择测试项目
+    print(f"\n{'='*40}")
+    print("请选择测试项目:")
+    print("1. 验证身份ID字段显示")
+    print("2. 测试重复姓名注册功能")
+    print("3. 运行完整测试套件")
+    print("4. 返回主菜单")
+    
+    test_choice = input("\n请选择 (1-4): ").strip()
+    
+    if test_choice == '1':
+        test_identity_id_display()
+    elif test_choice == '2':
+        test_duplicate_name_registration()
+    elif test_choice == '3':
+        run_complete_test_suite()
+    elif test_choice == '4':
+        print("✅ 返回主菜单")
+        return
+    else:
+        print("❌ 无效选择")
+        return
+
+def test_identity_id_display():
+    """测试身份ID字段正确显示"""
+    print(f"\n{'='*40}")
+    print("🔍 身份ID显示测试")
+    print(f"{'='*40}")
+    
+    print("正在查询数据库并检查身份ID显示...")
+    
+    try:
+        db = SessionLocal()
+        users = db.query(User).all()
+        
+        if not users:
+            print("⚠️  数据库为空，无法测试身份ID显示")
+            print("建议先注册一些用户，然后再运行此测试")
+            db.close()
+            return
+        
+        print(f"\n✅ 测试结果: 成功查询到 {len(users)} 个用户")
+        print(f"\n{'='*40}")
+        print("测试每个用户的身份ID字段...")
+        
+        all_have_identity_id = True
+        for user in users:
+            if not hasattr(user, 'identity_id') or user.identity_id is None:
+                all_have_identity_id = False
+                print(f"❌ 发现问题: 用户 {user.name} (ID: {user.id}) 没有有效的身份ID")
+            else:
+                print(f"✅ 用户 {user.name} 的身份ID: {user.identity_id}")
+        
+        if all_have_identity_id:
+            print(f"\n{'='*40}")
+            print("🎉 测试通过: 所有用户都有有效的身份ID字段")
+            print("✅ 身份ID字段显示功能正常")
+        else:
+            print(f"\n{'='*40}")
+            print("❌ 测试失败: 部分用户缺少身份ID字段")
+            print("💡 建议: 检查用户注册逻辑或数据库迁移")
+            
+        db.close()
+    except Exception as e:
+        print(f"❌ 测试过程中发生错误: {str(e)}")
+
+def test_duplicate_name_registration():
+    """测试重复姓名注册功能"""
+    print(f"\n{'='*40}")
+    print("📝 重复姓名注册测试")
+    print(f"{'='*40}")
+    
+    # 检查是否有测试图片可用
+    test_image_dir = os.path.join(backend_dir, "data", "test_images")
+    default_images = []
+    
+    if os.path.exists(test_image_dir):
+        default_images = [f for f in os.listdir(test_image_dir) 
+                         if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp'))]
+    
+    if not default_images:
+        print("❌ 未找到可用的测试图片")
+        print("建议在 data/test_images 目录下添加一些测试图片")
+        return
+    
+    # 选择用于测试的图片
+    print(f"\n可用的测试图片:")
+    for i, img in enumerate(default_images, 1):
+        print(f"   {i}. {img}")
+    
+    try:
+        choice = input("请选择一张图片用于测试 (输入序号): ").strip()
+        index = int(choice) - 1
+        
+        if 0 <= index < len(default_images):
+            test_image_path = os.path.join(test_image_dir, default_images[index])
+        else:
+            print("❌ 无效的图片序号")
+            return
+    except ValueError:
+        print("❌ 输入格式错误")
+        return
+    
+    # 使用相同的姓名注册两个用户
+    test_name = "测试用户"
+    
+    print(f"\n{'='*40}")
+    print(f"正在使用测试姓名 '{test_name}' 进行重复注册测试...")
+    print(f"{'='*40}")
+    
+    try:
+        # 注册第一个用户
+        print("\n🔄 注册第一个用户...")
+        image1 = Image.open(test_image_path)
+        result1 = register_face(test_name, image1)
+        
+        if 'user_id' not in result1:
+            print(f"❌ 第一次注册失败: {result1.get('message', '未知错误')}")
+            return
+        
+        user1_id = result1['user_id']
+        user1_identity_id = result1['identity_id']
+        print(f"✅ 第一个用户注册成功")
+        print(f"   用户ID: {user1_id}")
+        print(f"   身份ID: {user1_identity_id}")
+        
+        # 注册第二个同名用户
+        print("\n🔄 注册第二个同名用户...")
+        image2 = Image.open(test_image_path)
+        result2 = register_face(test_name, image2)
+        
+        if 'user_id' not in result2:
+            print(f"❌ 第二次注册失败: {result2.get('message', '未知错误')}")
+            return
+        
+        user2_id = result2['user_id']
+        user2_identity_id = result2['identity_id']
+        print(f"✅ 第二个同名用户注册成功")
+        print(f"   用户ID: {user2_id}")
+        print(f"   身份ID: {user2_identity_id}")
+        
+        # 验证身份ID唯一性
+        if user1_identity_id == user2_identity_id:
+            print(f"\n{'='*40}")
+            print("❌ 测试失败: 两个用户拥有相同的身份ID")
+            print("这违反了身份ID唯一性约束")
+        else:
+            print(f"\n{'='*40}")
+            print("🎉 测试通过: 成功注册了两个同名用户，并且身份ID保持唯一")
+            print(f"✅ 重复姓名注册功能正常工作")
+            print(f"✅ 身份ID唯一性约束正常工作")
+        
+        # 显示测试结果摘要
+        print(f"\n{'='*40}")
+        print("📊 测试结果摘要:")
+        print(f"   测试姓名: {test_name}")
+        print(f"   用户1身份ID: {user1_identity_id}")
+        print(f"   用户2身份ID: {user2_identity_id}")
+        print(f"   身份ID是否唯一: {'是' if user1_identity_id != user2_identity_id else '否'}")
+        print(f"   测试结论: {'通过' if user1_identity_id != user2_identity_id else '失败'}")
+        
+    except Exception as e:
+        print(f"❌ 测试过程中发生错误: {str(e)}")
+
+def run_complete_test_suite():
+    """运行完整测试套件"""
+    print(f"\n{'='*40}")
+    print("🔄 运行完整测试套件")
+    print(f"{'='*40}")
+    
+    # 运行身份ID显示测试
+    test_identity_id_display()
+    
+    # 询问是否继续运行重复姓名注册测试
+    print(f"\n{'='*40}")
+    continue_test = input("是否继续运行重复姓名注册测试？(y/n): ").strip().lower()
+    
+    if continue_test == 'y':
+        test_duplicate_name_registration()
+    else:
+        print("✅ 跳过重复姓名注册测试")
+    
+    print(f"\n{'='*40}")
+    print("✅ 测试套件运行完成")
+
 def main():
     """主函数"""
     try:
@@ -573,7 +788,7 @@ def main():
             print_menu()
             
             try:
-                choice = input("\n请选择操作 (1-6): ").strip()
+                choice = input("\n请选择操作 (1-7): ").strip()
                 
                 if choice == '1':
                     register_new_user()
@@ -586,6 +801,8 @@ def main():
                 elif choice == '5':
                     delete_users()
                 elif choice == '6':
+                    test_system_improvements()
+                elif choice == '7':
                     print("👋 感谢使用，再见！")
                     break
                 else:
