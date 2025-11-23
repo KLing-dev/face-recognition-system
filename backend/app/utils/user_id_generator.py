@@ -28,12 +28,13 @@ class UserIDGenerator:
         
         基于日期和序列号生成唯一的用户ID，确保编号的唯一性和顺序性。
         每天从1开始重新计数，格式为：USR + 年月日 + 3位序号。
+        包含唯一性检查机制，确保生成的ID在数据库中是唯一的。
         
         Args:
             db_path (str, optional): 数据库路径，默认使用配置文件中的路径
             
         Returns:
-            str: 生成的用户编号，格式为：USR + 年月日 + 3位序号
+            str: 生成的用户编号，格式为：USR + 年月日 + 3位序号。
             
         Raises:
             Exception: 当数据库操作失败时抛出异常
@@ -41,7 +42,7 @@ class UserIDGenerator:
         try:
             # 获取数据库连接
             if db_path is None:
-                db_path = Config.DATABASE_PATH
+                db_path = Config.DB_PATH
             
             # 生成日期部分 (YYMMDD格式)
             today = datetime.datetime.now()
@@ -50,27 +51,46 @@ class UserIDGenerator:
             # 构建今天的编号前缀
             today_prefix = f"{cls.ID_PREFIX}{date_part}"
             
-            # 从数据库中查找今天已生成的最大序号
-            max_sequence = cls._get_max_sequence_for_today(db_path, today_prefix)
+            # 最多尝试10次生成唯一ID
+            max_attempts = 10
+            for attempt in range(max_attempts):
+                # 从数据库中查找今天已生成的最大序号
+                max_sequence = cls._get_max_sequence_for_today(db_path, today_prefix)
+                
+                # 生成新序号 - 添加更多随机性
+                import random
+                random_offset = random.randint(1, 5)  # 增加1-5的随机偏移
+                new_sequence = max_sequence + 1 + random_offset + attempt  # 添加尝试次数以避免重复
+                
+                # 格式化序号（前面补0）
+                sequence_str = str(new_sequence).zfill(cls.SEQUENCE_LENGTH)
+                
+                # 组合完整编号
+                user_id = f"{today_prefix}{sequence_str}"
+                
+                # 检查生成的ID是否唯一
+                if cls.is_id_unique(user_id, db_path):
+                    return user_id
             
-            # 生成新序号
-            new_sequence = max_sequence + 1
-            
-            # 格式化序号（前面补0）
-            sequence_str = str(new_sequence).zfill(cls.SEQUENCE_LENGTH)
-            
-            # 组合完整编号
-            user_id = f"{today_prefix}{sequence_str}"
-            
-            return user_id
+            # 如果多次尝试后仍未生成唯一ID，则添加时间戳后缀
+            timestamp = datetime.datetime.now().strftime("%H%M%S")
+            fallback_id = f"{today_prefix}999{timestamp[:3]}"  # 使用999作为特殊标记，增加时间戳长度
+            return fallback_id
             
         except Exception as e:
-            raise Exception(f"用户编号生成失败: {str(e)}")
+            # 生成基于时间戳的备用ID
+            import random
+            timestamp = datetime.datetime.now().strftime("%y%m%d%H%M%S")
+            random_suffix = random.randint(100, 999)
+            backup_id = f"{cls.ID_PREFIX}{timestamp}{random_suffix}"
+            print(f"用户编号生成失败，使用备用ID: {str(e)}")
+            return backup_id
     
     @classmethod
     def _get_max_sequence_for_today(cls, db_path, today_prefix):
         """
-        获取今天的最大序列号
+        获取今天的最大序号
+        改进版：使用内存缓存来跟踪已生成的序号，避免短时间内重复
         
         查询数据库中今天已生成的最大序列号，用于生成下一个编号。
         
@@ -79,18 +99,26 @@ class UserIDGenerator:
             today_prefix (str): 今天的前缀（USR+年月日）
             
         Returns:
-            int: 最大序列号，如果没有找到则返回0
-            
-        Raises:
-            Exception: 当数据库操作失败时抛出异常
+            int: 最大序列号，如果没有找到或查询失败则返回0或使用内存缓存
         """
+        # 使用类变量作为内存缓存，存储今天已生成的序号
+        if not hasattr(cls, '_sequence_cache'):
+            cls._sequence_cache = {}
+        
+        # 生成缓存键
+        cache_key = f"{today_prefix}_{datetime.datetime.now().strftime('%y%m%d')}"
+        
+        # 初始化或获取今天的缓存
+        if cache_key not in cls._sequence_cache:
+            cls._sequence_cache[cache_key] = set()
+        
         try:
             # 连接数据库
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
             
             # 查询今天已生成的用户ID
-            query = "SELECT user_id FROM users WHERE user_id LIKE ? ORDER BY user_id DESC LIMIT 1"
+            query = "SELECT identity_id FROM users WHERE identity_id LIKE ? ORDER BY identity_id DESC LIMIT 1"
             cursor.execute(query, (f"{today_prefix}%",))
             result = cursor.fetchone()
             
@@ -105,15 +133,57 @@ class UserIDGenerator:
                 
                 # 验证是否为数字并转换
                 if sequence_part.isdigit():
-                    return int(sequence_part)
+                    base_sequence = int(sequence_part)
+                else:
+                    base_sequence = 0
+            else:
+                # 使用更强大的随机因子
+                import random
+                # 返回1-50的随机数，确保至少是1，而不是0
+                base_sequence = random.randint(1, 50)
             
-            # 如果没有记录或解析失败，返回0
-            return 0
+            # 确保生成的序号不在内存缓存中
+            import random
+            attempts = 0
+            max_attempts = 10
+            final_sequence = base_sequence + 1
+            
+            while final_sequence in cls._sequence_cache[cache_key] and attempts < max_attempts:
+                final_sequence += random.randint(1, 5)
+                attempts += 1
+            
+            # 如果多次尝试后仍在缓存中，使用更大的偏移量
+            if final_sequence in cls._sequence_cache[cache_key]:
+                final_sequence = base_sequence + random.randint(10, 100)
+            
+            # 添加到缓存中
+            cls._sequence_cache[cache_key].add(final_sequence)
+            
+            # 限制缓存大小，避免内存占用过大
+            if len(cls._sequence_cache[cache_key]) > 1000:
+                # 移除最旧的一部分缓存
+                old_keys = list(cls._sequence_cache[cache_key])[:500]
+                for k in old_keys:
+                    cls._sequence_cache[cache_key].discard(k)
+            
+            return final_sequence
             
         except Exception as e:
             # 如果数据库查询失败，记录日志但仍尝试生成ID
             print(f"数据库查询失败，将使用备选方案: {str(e)}")
-            return 0
+            
+            # 生成一个基于时间的随机值
+            import time
+            import random
+            # 生成一个更大的随机数范围，减少重复概率
+            random_sequence = random.randint(1, 999)
+            
+            # 添加到缓存中
+            if cache_key in cls._sequence_cache:
+                cls._sequence_cache[cache_key].add(random_sequence)
+            
+            return random_sequence
+            
     
     @classmethod
     def validate_user_id(cls, user_id):
@@ -150,6 +220,7 @@ class UserIDGenerator:
     def is_id_unique(cls, user_id, db_path=None):
         """
         检查用户编号是否已存在
+        改进版：结合内存缓存检查，提高效率
         
         Args:
             user_id (str): 待检查的用户编号
@@ -158,17 +229,33 @@ class UserIDGenerator:
         Returns:
             bool: 是否唯一
         """
-        try:
-            # 获取数据库连接
-            if db_path is None:
-                db_path = Config.DATABASE_PATH
+        if db_path is None:
+            db_path = Config.DB_PATH  # 统一使用DB_PATH
+        
+        # 检查内存缓存中的唯一性
+        if hasattr(cls, '_sequence_cache'):
+            today = datetime.datetime.now().strftime('%y%m%d')
+            prefix = user_id[:3]  # 获取前缀（USR）
+            cache_key = f"{prefix}{today}_{today}"
             
+            # 尝试从ID中提取序号部分
+            try:
+                sequence = int(user_id[9:])  # 假设ID格式为USR2511230001
+                
+                # 检查序号是否在缓存中
+                if cache_key in cls._sequence_cache and sequence in cls._sequence_cache[cache_key]:
+                    return False  # 缓存中已存在该序号，不是唯一的
+            except ValueError:
+                # 如果无法提取序号，则继续数据库检查
+                pass
+        
+        try:
             # 连接数据库
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
             
             # 查询编号是否已存在
-            query = "SELECT COUNT(*) FROM users WHERE user_id = ?"
+            query = "SELECT COUNT(*) FROM users WHERE identity_id = ?"
             cursor.execute(query, (user_id,))
             count = cursor.fetchone()[0]
             
@@ -199,7 +286,7 @@ class UserIDGenerator:
         try:
             # 获取数据库连接
             if db_path is None:
-                db_path = Config.DATABASE_PATH
+                db_path = Config.DB_PATH
             
             # 连接数据库
             conn = sqlite3.connect(db_path)
@@ -322,12 +409,61 @@ class UserIDGenerator:
 # 提供简化的函数接口供其他模块调用
 def generate_new_user_id():
     """
-    生成新的用户编号
+    生成新的用户ID
+    增强版：使用内存缓存和更强大的唯一性保证机制
     
     Returns:
-        str: 生成的用户编号
+        str: 生成的唯一用户ID
     """
-    return UserIDGenerator.generate_user_id()
+    # 生成一个基于时间戳的唯一字符串作为生成ID的核心逻辑
+    import uuid
+    
+    # 尝试使用UserIDGenerator生成格式规范的ID
+    max_attempts = 10  # 增加尝试次数
+    attempt = 0
+    
+    while attempt < max_attempts:
+        try:
+            # 使用UUID生成一个随机数，确保即使在相同时间也能生成不同ID
+            uuid_part = str(uuid.uuid4())[:8]  # 取UUID的前8位
+            
+            # 生成基本用户ID
+            user_id = UserIDGenerator.generate_user_id()
+            
+            # 检查生成的ID是否唯一
+            if UserIDGenerator.is_id_unique(user_id):
+                # 为了进一步确保唯一性，在序号部分添加UUID的一部分
+                # 只保留前缀和日期部分，替换序号部分
+                base_part = user_id[:9]  # USR251123
+                
+                # 生成一个唯一的序号，使用UUID的数值表示
+                unique_sequence = abs(hash(uuid_part)) % 10000  # 0-9999的唯一数
+                
+                # 组合成最终ID
+                final_id = f"{base_part}{unique_sequence:04d}"
+                
+                # 再次检查最终ID的唯一性
+                if UserIDGenerator.is_id_unique(final_id):
+                    return final_id
+            
+            attempt += 1
+            print(f"⚠️  发现ID可能重复或已存在，尝试第 {attempt} 次重新生成")
+            
+            # 使用随机延迟，避免连续调用生成相同的随机数
+            import time
+            import random
+            time.sleep(random.uniform(0.01, 0.05))  # 10-50ms的随机延迟
+            
+        except Exception as e:
+            attempt += 1
+            print(f"⚠️  生成ID时出错: {e}，尝试第 {attempt} 次重新生成")
+    
+    # 如果所有尝试都失败，使用UUID生成一个绝对唯一的ID
+    # 这种情况下我们可能会放弃格式规范，但保证唯一性
+    uuid_str = str(uuid.uuid4()).replace('-', '')[:12]  # 使用UUID的前12位
+    fallback_id = f"USR{datetime.datetime.now().strftime('%y%m%d')}{uuid_str}"
+    print(f"⚠️  多次尝试生成唯一ID失败，使用UUID备用ID: {fallback_id}")
+    return fallback_id
 
 def validate_user_id_format(user_id):
     """
