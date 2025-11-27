@@ -18,7 +18,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False  # 关闭修改跟踪（提高性能）
     
     # 人脸识别配置
-    RECOGNITION_THRESHOLD = 0.6  # 人脸识别阈值（相似度低于此值视为不匹配，0-1之间）
+    RECOGNITION_THRESHOLD = 0.55  # 人脸识别阈值（相似度低于此值视为不匹配，0-1之间） - 优化后的值
     
     # Flask配置
     DEBUG = True  # 开发模式下启用调试
