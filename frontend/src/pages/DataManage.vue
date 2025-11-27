@@ -1,6 +1,16 @@
 <template>
   <div class="data-manage-container">
-    <h2 class="page-title">数据管理</h2>
+    <div class="page-header">
+      <h2 class="page-title">数据管理</h2>
+      <el-button 
+        type="primary" 
+        @click="$router.push('/')"
+        class="back-home-btn"
+      >
+        <el-icon><House /></el-icon>
+        返回主页面
+      </el-button>
+    </div>
     
     <!-- 统计卡片区域 -->
     <div class="stats-cards">
@@ -236,12 +246,12 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { deleteSingleUser as apiDeleteSingle, deleteBatchUsers as apiDeleteBatch } from '../api/delete'
 import { getStatistics, getUserList } from '../api/statistic'
-import { Search, Refresh, Delete, Warning, CircleCheck, CircleClose } from '@element-plus/icons-vue'
+import { Search, Refresh, Delete, Warning, CircleCheck, CircleClose, House } from '@element-plus/icons-vue'
 
 export default {
   name: 'DataManage',
   components: {
-    Search, Refresh, Delete, Warning, CircleCheck, CircleClose
+    Search, Refresh, Delete, Warning, CircleCheck, CircleClose, House
   },
   setup() {
     // 搜索相关
@@ -381,7 +391,7 @@ export default {
         )
         
         deleting.value = true
-        const response = await apiDeleteSingle(row.user_id)
+        const response = await apiDeleteSingle({ user_id: row.user_id })
         
         // 处理删除结果
         deleteResult.success = true
@@ -452,12 +462,12 @@ export default {
       
       try {
         const userIds = selectedRows.value.map(row => row.user_id)
-        const response = await apiDeleteBatch(userIds)
+        const response = await apiDeleteBatch({ user_ids: userIds })
         
         // 处理删除结果
         deleteResult.success = true
-        deleteResult.success_count = response.data.deleted || 0
-        deleteResult.failed_count = response.data.failed || 0
+        deleteResult.success_count = response.data.success_count || 0
+        deleteResult.failed_count = response.data.failed_count || 0
         deleteResult.message = ''
         showDeleteResultDialog.value = true
         
@@ -555,10 +565,22 @@ export default {
   padding: 20px;
 }
 
-.page-title {
-  text-align: center;
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 30px;
+}
+
+.page-title {
   color: #303133;
+  margin: 0;
+}
+
+.back-home-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 /* 统计卡片 */
