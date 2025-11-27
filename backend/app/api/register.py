@@ -107,11 +107,11 @@ class CameraRegisterAPI(Resource):
             
             # 调用后端注册逻辑
             try:
+                # 将user_id作为identity_id传递，因为register_face函数使用identity_id参数
                 result = register_face(
                     name=name,
-                    image=img_data,
-                    user_id=user_id,
-                    face_box=face_box
+                    image=img,
+                    identity_id=user_id
                 )
                 
                 # 处理注册结果
@@ -236,11 +236,11 @@ class UploadRegisterAPI(Resource):
             
             # 调用后端注册逻辑
             try:
+                # 将user_id作为identity_id传递，因为register_face函数使用identity_id参数
                 result = register_face(
                     name=name,
-                    image=img_data,
-                    user_id=user_id,
-                    face_box=face_box
+                    image=img,
+                    identity_id=user_id
                 )
                 
                 # 处理注册结果

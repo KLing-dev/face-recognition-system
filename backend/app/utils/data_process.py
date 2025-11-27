@@ -334,7 +334,7 @@ def recognize_face(image):
                 match_details.append({
                     "face_index": i,
                     "matched_user": None,
-                    "similarity": 0.0,
+                    "similarity": float(0.0),  # 确保是Python原生float
                     "face_box": face_box,
                     "error": "特征提取失败"
                 })
@@ -360,7 +360,7 @@ def recognize_face(image):
                 match_details.append({
                     "face_index": i,
                     "matched_user": best_match_name,
-                    "similarity": best_similarity,
+                    "similarity": float(best_similarity),  # 确保转换为Python原生float
                     "face_box": face_box,
                     "error": None
                 })
@@ -371,7 +371,7 @@ def recognize_face(image):
                 match_details.append({
                     "face_index": i,
                     "matched_user": None,
-                    "similarity": max_similarity,
+                    "similarity": float(max_similarity),  # 确保转换为Python原生float
                     "face_box": face_box,
                     "error": "未找到匹配用户"
                 })
@@ -381,12 +381,27 @@ def recognize_face(image):
         # 统计结果
         total_count = len(face_images)
         matched_count = len(matched_names)
-        unmatched_count_db = total_count - matched_count
+        # 修正计算：数据库中存在但未出现在当前识别中的用户数
+        unmatched_count_db = len(user_names) - matched_count
         
         # 获取数据库中未出现的用户名
         all_db_names = set(user_names)
         matched_names_list = list(matched_names)
         unmatched_names_db = list(all_db_names - matched_names)
+        
+        # 转换人脸框为Python原生类型（如果是NumPy数组）
+        if face_boxes:
+            # 确保face_boxes中的每个元素都是包含Python原生类型的元组
+            processed_face_boxes = []
+            for box in face_boxes:
+                # 处理不同情况的人脸框数据
+                if isinstance(box, (list, tuple, np.ndarray)):
+                    processed_face_boxes.append(tuple(float(coord) for coord in box))
+                else:
+                    processed_face_boxes.append(box)  # 如果是其他类型，保持不变
+            face_boxes = processed_face_boxes
+        else:
+            face_boxes = []
         
         return {
             "total_count": total_count,

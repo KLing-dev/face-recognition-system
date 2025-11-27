@@ -17,6 +17,7 @@ def create_app():
     from .recognize import CameraRecognizeAPI, UploadRecognizeAPI
     from .delete import SingleDeleteAPI, BatchDeleteAPI
     from .statistic import StatisticAPI
+    from .user import UserListAPI
     
     # 注册接口路由
     api.add_resource(CameraRegisterAPI, '/register/camera')
@@ -26,6 +27,7 @@ def create_app():
     api.add_resource(SingleDeleteAPI, '/delete/single')
     api.add_resource(BatchDeleteAPI, '/delete/batch')
     api.add_resource(StatisticAPI, '/statistic')
+    api.add_resource(UserListAPI, '/user/list')
     
     return app
 
