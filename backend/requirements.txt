@@ -15,6 +15,8 @@ mtcnn==0.1.1            # MTCNN人脸检测库 (依赖TensorFlow)
 tensorflow==2.15.0      # TensorFlow (MTCNN依赖)
 facenet-pytorch==2.5.3  # FaceNet预训练模型库，用于人脸特征提取
 pandas==2.2.1           # 数据分析库（可选，用于数据处理）
+# ModNet人像分割模型相关依赖
+# ModNet直接使用PyTorch和torchvision，无需额外依赖
 
 # PyTorch依赖 (facenet-pytorch需要)
 torch==2.1.2            # PyTorch深度学习框架
