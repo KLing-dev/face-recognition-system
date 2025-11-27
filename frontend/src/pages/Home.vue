@@ -91,16 +91,25 @@ export default {
     // 加载统计信息
     const loadStatistics = async () => {
       try {
+        console.log('开始获取统计数据...')
         const res = await getStatistics()
+        console.log('API响应:', res)
         // 从res.data中获取数据，同时兼容之前的直接格式
         const data = res.data || res
+        console.log('提取的数据:', data)
         statistics.value = {
           total_users: data.total_users || 0,
-          today_registrations: data.today_registered || data.today_registrations || 0,
-          valid_face_rate: data.valid_face_rate || 0
+          today_registrations: data.active_today || 0,
+          valid_face_rate: data.recognition_count || 0
         }
+        console.log('更新后的统计数据:', statistics.value)
       } catch (error) {
         console.error('获取统计数据失败:', error)
+        console.error('错误详情:', error.message)
+        if (error.response) {
+          console.error('响应状态:', error.response.status)
+          console.error('响应数据:', error.response.data)
+        }
       }
     }
 

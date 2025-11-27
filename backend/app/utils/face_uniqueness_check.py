@@ -23,7 +23,7 @@ class FaceUniquenessChecker:
         Args:
             db_path (str, optional): 数据库路径
         """
-        self.db_path = db_path if db_path else Config.DATABASE_PATH
+        self.db_path = db_path if db_path else Config.DB_PATH
         
     def check_face_uniqueness(self, face_image, threshold=None):
         """

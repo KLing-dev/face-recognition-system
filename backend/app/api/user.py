@@ -1,6 +1,8 @@
 from flask_restful import Resource
 from flask import request
 from ..models.models import SessionLocal, User
+import os
+from ..config import config
 
 # 从api/__init__.py复制响应格式化函数
 def success_response(data=None):
@@ -63,16 +65,23 @@ class UserListAPI(Resource):
                 users = query.offset((page - 1) * page_size).limit(page_size).all()
                 
                 # 转换为响应格式
-                user_list = [
-                    {
+                user_list = []
+                for user in users:
+                    # 将文件系统路径转换为相对URL
+                    face_thumbnail_url = ''
+                    if hasattr(user, 'image_path') and user.image_path:
+                        # 从完整文件路径中提取文件名
+                        filename = os.path.basename(user.image_path)
+                        # 构建相对URL路径
+                        face_thumbnail_url = f'/static/faces/{filename}'
+                    
+                    user_list.append({
                         "user_id": user.identity_id,  # 使用identity_id作为user_id
                         "name": user.name,
                         "created_at": user.created_at.isoformat() if user.created_at else None,
-                        "face_thumbnail": user.image_path if hasattr(user, 'image_path') and user.image_path else '',
+                        "face_thumbnail": face_thumbnail_url,
                         "is_deleted": user.is_deleted if hasattr(user, 'is_deleted') else False
-                    }
-                    for user in users
-                ]
+                    })
                 
                 # 返回成功响应
                 return success_response({

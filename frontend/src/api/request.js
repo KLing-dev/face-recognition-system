@@ -28,17 +28,7 @@ service.interceptors.response.use(
     // 1. 如果有code字段，按原来的逻辑处理
     if (typeof res.code !== 'undefined') {
       if (res.code !== 0) {
-        // 处理特定错误码
-        if (res.code === 3) {
-          // 注册阻断错误
-          ElMessage.error(res.msg || '[注册阻断] 操作失败')
-        } else if (res.code === 10) {
-          // 无有效人脸错误
-          ElMessage.error('无有效人脸，请重新拍摄或上传')
-        } else {
-          // 其他错误
-          ElMessage.error(res.msg || '操作失败')
-        }
+        // 不在响应拦截器中显示错误消息，统一在业务逻辑中处理
         return Promise.reject(new Error(res.msg || 'Error'))
       }
       return res

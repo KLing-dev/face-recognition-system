@@ -20,21 +20,22 @@ import uuid
 from datetime import datetime
 from PIL import Image
 import numpy as np
+from sqlalchemy import text
 
 # 处理相对导入问题
 if __name__ == "__main__":
     # 直接运行时添加backend目录到Python路径
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    backend_dir = os.path.dirname(os.path.dirname(current_dir))
+    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
     sys.path.insert(0, backend_dir)
     from app.config import config
     from app.models.models import User, get_db, SessionLocal
     from app.utils.face_utils import detect_face, extract_face_feature, save_face_feature, load_face_feature, compare_face_features
     from app.utils.user_id_generator import generate_new_user_id, validate_user_id_format, check_user_id_uniqueness
-    from app.utils.user_data_manager import delete_user
+    from app.utils.user_data_manager import delete_user, delete_users
 else:
     # 作为模块导入时使用相对导入
-    from app.utils.user_data_manager import delete_user
+    from app.utils.user_data_manager import delete_user, delete_users
     from ..config import config
     from ..models.models import User, get_db, SessionLocal
     from .face_utils import detect_face, extract_face_feature, save_face_feature, load_face_feature, compare_face_features
@@ -476,7 +477,7 @@ def get_statistics():
     获取系统统计数据
     
     Returns:
-        dict: 包含统计信息的字典
+        dict: 包含统计信息的字典（仅数据部分，不包含code/message包装）
     """
     try:
         # 获取数据库会话
@@ -489,41 +490,40 @@ def get_statistics():
         
         try:
             # 查询总用户数
-            total_users = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+            total_users = db.execute(text("SELECT COUNT(*) FROM users")).fetchone()[0]
             
             # 查询今日活跃用户数
             from datetime import datetime, timedelta
             today = datetime.now().date()
             active_today = db.execute(
-                "SELECT COUNT(DISTINCT user_id) FROM recognition_logs WHERE date(timestamp) = ?",
-                (today,)
+                text("SELECT COUNT(DISTINCT user_id) FROM recognition_logs WHERE date(timestamp) = :today"),
+                {"today": today}
             ).fetchone()[0]
             
             # 查询总识别次数
-            recognition_count = db.execute("SELECT COUNT(*) FROM recognition_logs").fetchone()[0]
+            recognition_count = db.execute(text("SELECT COUNT(*) FROM recognition_logs")).fetchone()[0]
             
+            # 只返回数据部分，不包装code/message
             return {
-                "code": 0,
-                "message": "所有统计数据已获取",
-                "data": {
-                    "total_users": total_users,
-                    "active_today": active_today,
-                    "recognition_count": recognition_count
-                }
+                "total_users": total_users,
+                "active_today": active_today,
+                "recognition_count": recognition_count
             }
         except Exception as e:
+            # 发生错误时返回空数据
             return {
-                "code": 500,
-                "message": f"获取统计数据失败: {str(e)}",
-                "data": None
+                "total_users": 0,
+                "active_today": 0,
+                "recognition_count": 0
             }
         finally:
             db.close()
     except Exception as e:
+        # 发生系统错误时返回空数据
         return {
-            "code": 500,
-            "message": f"系统错误: {str(e)}",
-            "data": None
+            "total_users": 0,
+            "active_today": 0,
+            "recognition_count": 0
         }
 
 def delete_user_by_id(user_id):
@@ -557,4 +557,40 @@ def delete_user_by_id(user_id):
             "success": False,
             "message": f"删除用户时发生错误: {str(e)}",
             "deleted_user_id": None
+        }
+
+def batch_delete_users(user_ids):
+    """
+    批量删除用户
+    
+    Args:
+        user_ids (list): 用户ID列表
+    
+    Returns:
+        dict: 包含批量删除结果的字典
+    """
+    try:
+        # 调用user_data_manager中的delete_users函数
+        result = delete_users(user_ids, delete_images=True, require_confirmation=False)
+        
+        # 提取失败的ID列表
+        failed_ids = []
+        for detail in result.get('details', []):
+            if not detail.get('success', False):
+                failed_ids.append(detail.get('user_id'))
+        
+        return {
+            "success": result.get('success', False),
+            "success_count": result.get('deleted_count', 0),
+            "failed_count": result.get('failed_count', 0),
+            "failed_ids": failed_ids,
+            "message": result.get('message', '批量删除完成')
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "success_count": 0,
+            "failed_count": len(user_ids),
+            "failed_ids": user_ids,
+            "message": f"批量删除用户时发生错误: {str(e)}"
         }

@@ -1,6 +1,8 @@
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_cors import CORS
 from flask_restful import Api
+import os
+from ..config import config
 
 # 创建Flask应用实例
 def create_app():
@@ -8,6 +10,12 @@ def create_app():
     
     # 配置跨域，允许前端http://127.0.0.1:3000访问
     CORS(app, origins=['http://127.0.0.1:3000'])
+    
+    # 配置静态文件服务 - 提供人脸图片访问
+    @app.route('/static/faces/<path:filename>')
+    def serve_face_image(filename):
+        """提供人脸图片文件访问服务"""
+        return send_from_directory(config.FACE_IMAGE_DIR, filename)
     
     # 创建API实例，路由前缀统一为/api
     api = Api(app, prefix='/api')
@@ -50,6 +58,39 @@ def register_block_response(msg, suggestion=None, similarity=None):
     return {
         "code": 3,
         "msg": f"[注册阻断] {msg}",
+        "data": data
+    }, 200
+
+def face_quality_response(msg, suggestion=None):
+    """人脸质量错误响应"""
+    data = {}
+    if suggestion:
+        data['suggestion'] = suggestion
+    return {
+        "code": 11,
+        "msg": msg,
+        "data": data
+    }, 200
+
+def face_uniqueness_response(msg, suggestion=None):
+    """人脸唯一性错误响应"""
+    data = {}
+    if suggestion:
+        data['suggestion'] = suggestion
+    return {
+        "code": 12,
+        "msg": msg,
+        "data": data
+    }, 200
+
+def user_id_uniqueness_response(msg, suggestion=None):
+    """用户ID唯一性错误响应"""
+    data = {}
+    if suggestion:
+        data['suggestion'] = suggestion
+    return {
+        "code": 13,
+        "msg": msg,
         "data": data
     }, 200
 

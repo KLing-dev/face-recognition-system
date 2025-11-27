@@ -9,7 +9,7 @@ import request from './request'
 export const deleteSingleUser = (data) => {
   return request({
     url: '/delete/single',
-    method: 'post',
+    method: 'delete',
     data
   })
 }
@@ -23,7 +23,7 @@ export const deleteSingleUser = (data) => {
 export const deleteBatchUsers = (data) => {
   return request({
     url: '/delete/batch',
-    method: 'post',
+    method: 'delete',
     data
   })
 }
