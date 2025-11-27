@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>极简摄像头测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        /* 最简单的视频容器样式 */
+        #video-container {
+            width: 100%;
+            height: 400px;
+            background-color: #000;
+            border: 2px solid #333;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        /* 确保视频元素显示 */
+        #camera-video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background-color: #000;
+            display: block;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            color: white;
+        }
+        
+        #start-btn {
+            background-color: #4CAF50;
+        }
+        
+        #stop-btn {
+            background-color: #f44336;
+        }
+        
+        #check-btn {
+            background-color: #2196F3;
+        }
+        
+        #log-container {
+            background-color: #333;
+            color: #fff;
+            padding: 15px;
+            border-radius: 4px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        /* 确保视频元素在全局范围内没有样式冲突 */
+        #camera-video {
+            z-index: 9999 !important;
+            position: relative !important;
+            display: block !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>极简摄像头测试（原生HTML5）</h1>
+        
+        <!-- 视频容器 -->
+        <div id="video-container">
+            <video 
+                id="camera-video" 
+                autoplay 
+                playsinline
+                muted
+            ></video>
+        </div>
+        
+        <!-- 控制按钮 -->
+        <div class="controls">
+            <button id="start-btn">启动摄像头</button>
+            <button id="stop-btn">停止摄像头</button>
+            <button id="check-btn">检查状态</button>
+        </div>
+        
+        <!-- 日志容器 -->
+        <div id="log-container"></div>
+    </div>
+    
+    <script>
+        // 全局变量
+        let stream = null;
+        const video = document.getElementById('camera-video');
+        const logContainer = document.getElementById('log-container');
+        
+        // 日志函数
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            logContainer.textContent += logEntry;
+            console.log(logEntry.trim());
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // 初始化日志
+        log('=== 极简摄像头测试开始 ===');
+        log('浏览器兼容性检查:');
+        log(`navigator.mediaDevices: ${!!navigator.mediaDevices}`);
+        log(`getUserMedia: ${!!navigator.mediaDevices?.getUserMedia}`);
+        log(`视频元素: ${video ? '已找到' : '未找到'}`);
+        
+        // 启动摄像头
+        document.getElementById('start-btn').addEventListener('click', async () => {
+            try {
+                log('\n--- 启动摄像头 ---');
+                
+                // 先停止之前的流
+                if (stream) {
+                    stopStream();
+                }
+                
+                // 请求摄像头权限
+                log('请求摄像头权限...');
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    }
+                });
+                
+                log('摄像头权限获取成功');
+                
+                // 检查流信息
+                const tracks = stream.getTracks();
+                log(`获取到 ${tracks.length} 个媒体轨道`);
+                tracks.forEach((track, index) => {
+                    log(`轨道 ${index}: kind=${track.kind}, enabled=${track.enabled}`);
+                });
+                
+                // 设置视频流
+                log('设置视频流到video元素');
+                video.srcObject = stream;
+                
+                // 监听视频事件
+                video.onplay = () => log('视频开始播放');
+                video.onloadedmetadata = () => {
+                    log(`视频元数据: ${video.videoWidth}x${video.videoHeight}`);
+                };
+                video.onerror = (err) => {
+                    log(`视频错误: ${err.target.error?.message || '未知错误'}`);
+                };
+                
+                // 手动触发检查
+                setTimeout(() => {
+                    checkVideoStatus();
+                }, 1000);
+                
+            } catch (error) {
+                log(`启动失败: ${error.message}`);
+            }
+        });
+        
+        // 停止摄像头
+        document.getElementById('stop-btn').addEventListener('click', () => {
+            log('\n--- 停止摄像头 ---');
+            stopStream();
+        });
+        
+        // 检查视频状态
+        document.getElementById('check-btn').addEventListener('click', checkVideoStatus);
+        
+        // 停止流函数
+        function stopStream() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                log('视频流已停止');
+            }
+            
+            if (video) {
+                video.srcObject = null;
+                log('video.srcObject已清空');
+            }
+        }
+        
+        // 检查视频状态函数
+        function checkVideoStatus() {
+            log('\n--- 视频状态检查 ---');
+            log(`video.readyState: ${video.readyState}`);
+            log(`video.networkState: ${video.networkState}`);
+            log(`video.paused: ${video.paused}`);
+            log(`video.autoplay: ${video.autoplay}`);
+            log(`video.muted: ${video.muted}`);
+            log(`video.playsInline: ${video.playsInline}`);
+            
+            if (video.videoWidth > 0) {
+                log(`视频尺寸: ${video.videoWidth}x${video.videoHeight}`);
+            } else {
+                log('视频尺寸: 尚未可用');
+            }
+            
+            if (video.srcObject) {
+                const tracks = video.srcObject.getTracks();
+                log(`当前流中的轨道数: ${tracks.length}`);
+                tracks.forEach((track, index) => {
+                    log(`轨道 ${index}: kind=${track.kind}, enabled=${track.enabled}, readyState=${track.readyState}`);
+                });
+            } else {
+                log('video.srcObject: null');
+            }
+            
+            // 检查视频元素的计算样式
+            const computedStyle = window.getComputedStyle(video);
+            log(`\n视频元素计算样式:`);
+            log(`width: ${computedStyle.width}`);
+            log(`height: ${computedStyle.height}`);
+            log(`display: ${computedStyle.display}`);
+            log(`visibility: ${computedStyle.visibility}`);
+            log(`z-index: ${computedStyle.zIndex}`);
+            log(`opacity: ${computedStyle.opacity}`);
+        }
+        
+        // 页面卸载时清理
+        window.addEventListener('beforeunload', () => {
+            if (stream) {
+                stopStream();
+            }
+        });
+    </script>
+</body>
+</html>
