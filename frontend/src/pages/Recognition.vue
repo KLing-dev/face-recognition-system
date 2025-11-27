@@ -1,6 +1,16 @@
 <template>
   <div class="recognition-container">
-    <h2 class="page-title">人脸识别</h2>
+    <div class="page-header">
+      <h2 class="page-title">人脸识别</h2>
+      <el-button 
+        type="primary" 
+        @click="$router.push('/')"
+        class="back-home-btn"
+      >
+        <el-icon><House /></el-icon>
+        返回主页面
+      </el-button>
+    </div>
     
     <!-- 上传区域 -->
     <el-card class="upload-card">
@@ -1176,7 +1186,13 @@ export default {
           return recognitionResult.value
         } else {
           // API返回错误码
-          const errorMessage = result.message || '识别失败，请重试'
+          let errorMessage = result.message || '识别失败，请重试'
+          
+          // 特别处理错误码11（未检测到人脸）
+          if (result.code === 11) {
+            errorMessage = '未检测到人脸，请确保图像中有人脸且光线充足'
+          }
+          
           throw new Error(errorMessage)
         }
       } catch (error) {
@@ -1565,10 +1581,22 @@ export default {
   margin: 0 auto;
 }
 
-.page-title {
-  text-align: center;
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 30px;
+}
+
+.page-title {
   color: #303133;
+  margin: 0;
+}
+
+.back-home-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .upload-card {

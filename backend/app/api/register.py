@@ -23,7 +23,7 @@ import re
 from PIL import Image
 
 # 导入统一响应格式
-from . import success_response, register_block_response, error_response, system_error_response
+from . import success_response, register_block_response, error_response, system_error_response, face_quality_response, face_uniqueness_response, user_id_uniqueness_response
 
 # 导入数据处理模块
 from app.utils.data_process import register_face
@@ -123,12 +123,30 @@ class CameraRegisterAPI(Resource):
                         'image_path': result.get('image_path', '')
                     })
                 elif result.get('status') == 'blocked':
-                    # 注册阻断
-                    return register_block_response(
-                        msg=result['message'],
-                        similarity=result.get('similarity'),
-                        suggestion=result.get('suggestion')
-                    )
+                    # 注册阻断 - 根据消息内容判断具体错误类型
+                    error_msg = result['message']
+                    if "人脸质量" in error_msg:
+                        return face_quality_response(
+                            msg=error_msg,
+                            suggestion=result.get('suggestion', '请确保人脸清晰可见，面部完全暴露在画面中')
+                        )
+                    elif "唯一性" in error_msg or "已注册" in error_msg:
+                        return face_uniqueness_response(
+                            msg=error_msg,
+                            suggestion=result.get('suggestion', '该人脸已存在于系统中，请确认是否为同一人')
+                        )
+                    elif "ID唯一性" in error_msg:
+                        return user_id_uniqueness_response(
+                            msg=error_msg,
+                            suggestion=result.get('suggestion', '请更换用户ID或不指定ID（系统将自动生成）')
+                        )
+                    else:
+                        # 其他阻断情况使用通用阻断响应
+                        return register_block_response(
+                            msg=error_msg,
+                            similarity=result.get('similarity'),
+                            suggestion=result.get('suggestion')
+                        )
                 else:
                     # 其他错误
                     return error_response(5, result.get('message', '注册失败'))
@@ -137,17 +155,23 @@ class CameraRegisterAPI(Resource):
                 # 捕获特定的业务异常
                 error_msg = str(e)
                 if "人脸质量" in error_msg:
-                    return register_block_response(
+                    return face_quality_response(
                         msg=error_msg,
                         suggestion="请确保人脸清晰可见，面部完全暴露在画面中"
                     )
-                elif "唯一性" in error_msg:
-                    return register_block_response(
-                        msg=error_msg,
+                elif "未检测到人脸" in error_msg:
+                    # 记录完整错误信息到日志，但返回简化的错误消息给前端
+                    print(f"摄像头注册接口错误: {error_msg}")
+                    return error_response(11, "未检测到人脸，请确保图像中有人脸且光线充足")
+                elif "唯一性" in error_msg or "已注册" in error_msg:
+                    # 记录完整错误信息到日志，但返回简化的错误消息给前端
+                    print(f"注册阻断 - 人脸唯一性问题: {error_msg}")
+                    return face_uniqueness_response(
+                        msg="该人脸已注册，不可重复注册。",
                         suggestion="该人脸已存在于系统中，请确认是否为同一人"
                     )
                 elif "ID唯一性" in error_msg:
-                    return register_block_response(
+                    return user_id_uniqueness_response(
                         msg=error_msg,
                         suggestion="请更换用户ID或不指定ID（系统将自动生成）"
                     )
@@ -252,12 +276,30 @@ class UploadRegisterAPI(Resource):
                         'image_path': result.get('image_path', '')
                     })
                 elif result.get('status') == 'blocked':
-                    # 注册阻断
-                    return register_block_response(
-                        msg=result['message'],
-                        similarity=result.get('similarity'),
-                        suggestion=result.get('suggestion')
-                    )
+                    # 注册阻断 - 根据消息内容判断具体错误类型
+                    error_msg = result['message']
+                    if "人脸质量" in error_msg:
+                        return face_quality_response(
+                            msg=error_msg,
+                            suggestion=result.get('suggestion', '请确保人脸清晰可见，面部完全暴露在画面中')
+                        )
+                    elif "唯一性" in error_msg or "已注册" in error_msg:
+                        return face_uniqueness_response(
+                            msg=error_msg,
+                            suggestion=result.get('suggestion', '该人脸已存在于系统中，请确认是否为同一人')
+                        )
+                    elif "ID唯一性" in error_msg:
+                        return user_id_uniqueness_response(
+                            msg=error_msg,
+                            suggestion=result.get('suggestion', '请更换用户ID或不指定ID（系统将自动生成）')
+                        )
+                    else:
+                        # 其他阻断情况使用通用阻断响应
+                        return register_block_response(
+                            msg=error_msg,
+                            similarity=result.get('similarity'),
+                            suggestion=result.get('suggestion')
+                        )
                 else:
                     # 其他错误
                     return error_response(5, result.get('message', '注册失败'))
@@ -265,18 +307,23 @@ class UploadRegisterAPI(Resource):
             except Exception as e:
                 # 捕获特定的业务异常
                 error_msg = str(e)
-                if "人脸质量" in error_msg:
-                    return register_block_response(
+                if "未检测到人脸" in error_msg:
+                    print(f"上传注册接口错误: {error_msg}")
+                    return error_response(11, "未检测到人脸，请确保图像中有人脸且光线充足")
+                elif "人脸质量" in error_msg:
+                    return face_quality_response(
                         msg=error_msg,
                         suggestion="请确保人脸清晰可见，面部完全暴露在画面中"
                     )
-                elif "唯一性" in error_msg:
-                    return register_block_response(
-                        msg=error_msg,
+                elif "唯一性" in error_msg or "已注册" in error_msg:
+                    # 记录完整错误信息到日志，但返回简化的错误消息给前端
+                    print(f"注册阻断 - 人脸唯一性问题: {error_msg}")
+                    return face_uniqueness_response(
+                        msg="该人脸已注册，不可重复注册。",
                         suggestion="该人脸已存在于系统中，请确认是否为同一人"
                     )
                 elif "ID唯一性" in error_msg:
-                    return register_block_response(
+                    return user_id_uniqueness_response(
                         msg=error_msg,
                         suggestion="请更换用户ID或不指定ID（系统将自动生成）"
                     )

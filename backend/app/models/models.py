@@ -1,6 +1,6 @@
 """数据模型文件 - 定义数据库表结构和ORM映射"""
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -46,7 +46,22 @@ class User(Base):
     
     def __repr__(self):
         """返回用户对象的字符串表示"""
-        return f"<User(id={self.id}, name='{self.name}', identity_id='{self.identity_id}')>"
+        return f"<User(id={self.id}, name='{self.name}', identity_id='{self.identity_id})'>"
+
+
+class RecognitionLog(Base):
+    """人脸识别日志模型 - 存储识别记录"""
+    
+    __tablename__ = "recognition_logs"
+    
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="识别记录ID")
+    user_id = Column(Integer, nullable=False, comment="用户ID")
+    similarity = Column(Float, nullable=False, comment="相似度")
+    timestamp = Column(DateTime, default=datetime.now, comment="识别时间")
+    
+    def __repr__(self):
+        """返回识别日志对象的字符串表示"""
+        return f"<RecognitionLog(id={self.id}, user_id={self.user_id}, similarity={self.similarity})>"
 
 
 def get_db():

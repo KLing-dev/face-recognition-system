@@ -45,15 +45,15 @@ class SingleDeleteAPI(Resource):
             # 调用删除函数 - 使用从data_process导入的函数
             try:
                 # 使用导入的delete_user_by_id函数
-                success = delete_user_by_id(user_id)
+                result = delete_user_by_id(user_id)
                 
-                if not success:
-                    return error_response(2, "用户ID不存在")
+                if not result['success']:
+                    return error_response(2, result.get('message', '用户ID不存在'))
                 
                 # 构建成功响应
                 return success_response({
                     "deleted_user_id": user_id,
-                    "message": "用户删除成功"
+                    "message": result.get('message', '用户删除成功')
                 })
                 
             except Exception as e:
@@ -116,14 +116,15 @@ class BatchDeleteAPI(Resource):
                 result = batch_delete_users(user_ids)
                 
                 # 检查是否有部分删除失败
-                if result.get("failed_ids", []):
-                    return error_response(2, "部分用户删除失败")
+                if result.get("failed_count", 0) > 0:
+                    return error_response(2, f"部分用户删除失败，成功{result.get('success_count', 0)}个，失败{result.get('failed_count', 0)}个")
                 
                 # 构建成功响应
                 return success_response({
-                    "deleted_count": len(result.get("success_ids", [])),
-                    "deleted_user_ids": result.get("success_ids", []),
-                    "message": "批量删除成功"
+                    "success_count": result.get("success_count", 0),
+                    "failed_count": result.get("failed_count", 0),
+                    "failed_ids": result.get("failed_ids", []),
+                    "message": result.get("message", "批量删除成功")
                 })
                 
             except Exception as e:

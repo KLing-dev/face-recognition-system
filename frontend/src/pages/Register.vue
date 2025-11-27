@@ -1,6 +1,16 @@
 <template>
   <div class="register-container">
-    <h2 class="page-title">人脸录入</h2>
+    <div class="page-header">
+      <h2 class="page-title">人脸录入</h2>
+      <el-button 
+        type="primary" 
+        @click="$router.push('/')"
+        class="back-home-btn"
+      >
+        <el-icon><House /></el-icon>
+        返回主页面
+      </el-button>
+    </div>
     
     <div class="register-content">
       <!-- 左侧图像预览区 -->
@@ -644,28 +654,46 @@ export default {
       } catch (error) {
         console.error('注册请求失败:', error)
         
-        // 使用增强的错误处理，优先使用detailedMessage
+        // 错误码映射表
+        const errorCodeMap = {
+          11: '人脸质量问题',
+          12: '人脸唯一性问题',
+          13: '用户ID唯一性问题'
+        }
+        
+        // 使用增强的错误处理
         let errorMessage = '注册失败: '
         
-        // 首先检查我们在request.js中添加的detailedMessage
+        // 优先使用detailedMessage（从request.js获取）
         if (error.detailedMessage) {
-          errorMessage += error.detailedMessage
-        } 
+          // 从详细错误信息中提取消息内容
+          if (error.detailedMessage === '该人脸已注册，不可重复注册。') {
+            errorMessage = '注册失败: 该人脸已注册，不可重复注册。'
+          } else {
+            errorMessage += error.detailedMessage
+          }
+        }
         // 尝试多种可能的错误信息来源
         else if (error.response) {
-          if (typeof error.response.data === 'string') {
-            errorMessage += error.response.data
-          } else if (error.response.data?.msg) {
-            errorMessage += error.response.data.msg
-          } else if (error.response.data?.message) {
-            errorMessage += error.response.data.message
-          } else if (error.response.data?.error) {
-            errorMessage += error.response.data.error
-          } else if (error.response.status === 500) {
-            // 特别处理500错误，后端可能返回详细错误文本
-            errorMessage += error.response.data || '服务器内部错误'
-          } else {
-            errorMessage += '网络连接失败'
+          if (error.response.data) {
+            // 特别处理特定错误码
+            if (error.response.data?.code === 12) {
+              errorMessage = '注册失败: 该人脸已注册，不可重复注册。'
+            } else if (error.response.data?.code === 11) {
+              errorMessage = '注册失败: 未检测到人脸，请确保图像中有人脸且光线充足'
+            } else if (typeof error.response.data === 'string') {
+              errorMessage += error.response.data
+            } else if (error.response.data?.msg) {
+              errorMessage += error.response.data.msg
+            } else if (error.response.data?.message) {
+              errorMessage += error.response.data.message
+            } else if (error.response.data?.error) {
+              errorMessage += error.response.data.error
+            } else if (error.response.status === 500) {
+              errorMessage += '服务器内部错误'
+            } else {
+              errorMessage += '网络连接失败'
+            }
           }
         } else if (error.message) {
           errorMessage += error.message
@@ -788,14 +816,27 @@ export default {
 <style scoped>
 .register-container {
   max-width: 1400px;
+.register-container {
   margin: 0 auto;
   padding: 20px;
 }
 
-.page-title {
-  text-align: center;
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 30px;
+}
+
+.page-title {
   color: #303133;
+  margin: 0;
+}
+
+.back-home-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .register-content {
@@ -1010,5 +1051,6 @@ export default {
   .action-buttons {
     flex-direction: column;
   }
+}
 }
 </style>

@@ -37,7 +37,7 @@ class UserDataManager:
         Raises:
             Exception: 当数据库初始化失败时抛出异常
         """
-        self.db_path = db_path if db_path else Config.DATABASE_PATH
+        self.db_path = db_path if db_path else Config.DB_PATH
         # 确保数据库路径存在
         self._ensure_db_exists()
     
@@ -65,7 +65,7 @@ class UserDataManager:
         """
         通过用户ID或用户名查找用户
         
-        首先尝试通过user_id查询用户，如果未找到则尝试通过user_name查询。
+        首先尝试通过identity_id查询用户，如果未找到则尝试通过name查询。
         返回用户的完整信息，包括ID、姓名、特征向量和图像路径。
         
         Args:
@@ -83,17 +83,17 @@ class UserDataManager:
             conn.row_factory = sqlite3.Row  # 使用字典形式返回结果
             cursor = conn.cursor()
             
-            # 首先尝试通过user_id查询
+            # 首先尝试通过identity_id查询
             cursor.execute(
-                "SELECT user_id, user_name, feature_vector, image_path FROM users WHERE user_id = ?",
+                "SELECT identity_id as user_id, name as user_name, feature_path, image_path FROM users WHERE identity_id = ?",
                 (user_identifier,)
             )
             user = cursor.fetchone()
             
-            # 如果没找到，尝试通过user_name查询
+            # 如果没找到，尝试通过name查询
             if not user:
                 cursor.execute(
-                    "SELECT user_id, user_name, feature_vector, image_path FROM users WHERE user_name = ?",
+                    "SELECT identity_id as user_id, name as user_name, feature_path, image_path FROM users WHERE name = ?",
                     (user_identifier,)
                 )
                 user = cursor.fetchone()
@@ -135,9 +135,9 @@ class UserDataManager:
             
             # 查询匹配任一ID或用户名的用户
             query = f"""
-                SELECT user_id, user_name, feature_vector, image_path 
+                SELECT identity_id as user_id, name as user_name, feature_path, image_path 
                 FROM users 
-                WHERE user_id IN ({placeholders}) OR user_name IN ({placeholders})
+                WHERE identity_id IN ({placeholders}) OR name IN ({placeholders})
             """
             
             # 构建参数列表（需要重复identifiers两次，因为查询条件有两个IN子句）
@@ -178,10 +178,13 @@ class UserDataManager:
             Exception: 当数据库操作失败时抛出异常
         """
         try:
+            print(f"[DEBUG] 开始删除用户，用户ID: {user_id}")
+            
             # 先获取用户信息
             user_info = self.get_user_by_id_or_name(user_id)
             
             if not user_info:
+                print(f"[DEBUG] 用户不存在: {user_id}")
                 return {
                     "success": False,
                     "message": f"用户 ID '{user_id}' 不存在",
@@ -211,11 +214,15 @@ class UserDataManager:
             
             # 执行实际删除操作
             # 1. 删除数据库记录
+            print(f"[DEBUG] 开始删除数据库记录，用户ID: {user_id}")
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+            cursor.execute("DELETE FROM users WHERE identity_id = ?", (user_id,))
+            deleted_rows = cursor.rowcount
             conn.commit()
             conn.close()
+            
+            print(f"[DEBUG] 删除数据库记录完成，影响行数: {deleted_rows}")
             
             # 2. 删除关联的图像文件
             deleted_files = []
@@ -223,8 +230,11 @@ class UserDataManager:
                 try:
                     os.remove(file_path)
                     deleted_files.append(file_path)
+                    print(f"[DEBUG] 删除文件成功: {file_path}")
                 except Exception as e:
                     print(f"删除文件 '{file_path}' 失败: {str(e)}")
+            
+            print(f"[DEBUG] 删除操作完成，删除文件数: {len(deleted_files)}")
             
             return {
                 "success": True,
